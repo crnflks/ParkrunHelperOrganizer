@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parkrun Debug Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        pre {
+            background: #e0e0e0;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Parkrun System Debug Test</h1>
+        
+        <div class="test-section">
+            <h2>Script Loading Test</h2>
+            <p>Checking if external scripts are loaded...</p>
+            <div id="script-test"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Date Test</h2>
+            <p>Testing Saturday calculation...</p>
+            <div id="date-test"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Data Test</h2>
+            <p>Testing data storage...</p>
+            <div id="data-test"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Configuration Test</h2>
+            <p>Testing configuration...</p>
+            <div id="config-test"></div>
+        </div>
+    </div>
+
+    <script src="parkrun-config.js"></script>
+    <script src="parkrun-data.js"></script>
+    
+    <script>
+        // Test script loading
+        function testScripts() {
+            const scriptTest = document.getElementById('script-test');
+            let html = '';
+            
+            if (typeof ParkrunConfig !== 'undefined') {
+                html += '<p class="success">✓ ParkrunConfig loaded successfully</p>';
+            } else {
+                html += '<p class="error">✗ ParkrunConfig NOT loaded</p>';
+            }
+            
+            if (typeof ParkrunData !== 'undefined') {
+                html += '<p class="success">✓ ParkrunData loaded successfully</p>';
+            } else {
+                html += '<p class="error">✗ ParkrunData NOT loaded</p>';
+            }
+            
+            scriptTest.innerHTML = html;
+        }
+        
+        // Test date functions
+        function testDates() {
+            const dateTest = document.getElementById('date-test');
+            const today = new Date();
+            
+            // Get Saturdays function
+            function getSaturdays() {
+                const saturdays = [];
+                const year = today.getFullYear();
+                const endOfYear = new Date(year, 11, 31);
+                
+                let current = new Date(today);
+                const dayOfWeek = current.getDay();
+                
+                if (dayOfWeek !== 6) {
+                    const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
+                    current.setDate(current.getDate() + daysUntilSaturday);
+                }
+                
+                while (current <= endOfYear) {
+                    saturdays.push(new Date(current));
+                    current.setDate(current.getDate() + 7);
+                }
+                
+                if (saturdays.length === 0) {
+                    const nextYear = year + 1;
+                    const endOfNextYear = new Date(nextYear, 11, 31);
+                    current = new Date(nextYear, 0, 1);
+                    
+                    const firstDayOfYear = current.getDay();
+                    if (firstDayOfYear !== 6) {
+                        const daysUntilSaturday = (6 - firstDayOfYear + 7) % 7;
+                        current.setDate(current.getDate() + daysUntilSaturday);
+                    }
+                    
+                    let weeksAdded = 0;
+                    while (current <= endOfNextYear && weeksAdded < 52) {
+                        saturdays.push(new Date(current));
+                        current.setDate(current.getDate() + 7);
+                        weeksAdded++;
+                    }
+                }
+                
+                return saturdays;
+            }
+            
+            const saturdays = getSaturdays();
+            
+            let html = `<p>Today: ${today.toDateString()} (Day ${today.getDay()})</p>`;
+            html += `<p>End of year: ${new Date(today.getFullYear(), 11, 31).toDateString()}</p>`;
+            html += `<p class="${saturdays.length > 0 ? 'success' : 'error'}">Found ${saturdays.length} Saturdays</p>`;
+            
+            if (saturdays.length > 0) {
+                html += '<p>First 5 Saturdays:</p><ul>';
+                saturdays.slice(0, 5).forEach(sat => {
+                    html += `<li>${sat.toDateString()}</li>`;
+                });
+                html += '</ul>';
+            }
+            
+            dateTest.innerHTML = html;
+        }
+        
+        // Test data storage
+        function testData() {
+            const dataTest = document.getElementById('data-test');
+            let html = '';
+            
+            if (typeof ParkrunData !== 'undefined') {
+                try {
+                    ParkrunData.init();
+                    const helpers = ParkrunData.getHelpers();
+                    const helperCount = Object.keys(helpers).length;
+                    
+                    html += `<p class="success">✓ Data initialized</p>`;
+                    html += `<p>Helpers in database: ${helperCount}</p>`;
+                    html += `<p>Language preference: ${ParkrunData.getLanguage()}</p>`;
+                    
+                    // Test week data
+                    const testWeek = '2025-01-01';
+                    const weekData = ParkrunData.getWeekData(testWeek);
+                    html += `<p>Test week data entries: ${Object.keys(weekData).length}</p>`;
+                    
+                } catch (e) {
+                    html += `<p class="error">✗ Error: ${e.message}</p>`;
+                }
+            } else {
+                html += '<p class="error">✗ ParkrunData not available</p>';
+            }
+            
+            dataTest.innerHTML = html;
+        }
+        
+        // Test configuration
+        function testConfig() {
+            const configTest = document.getElementById('config-test');
+            let html = '';
+            
+            if (typeof ParkrunConfig !== 'undefined') {
+                try {
+                    const roles = ParkrunConfig.volunteerRoles;
+                    const languages = ParkrunConfig.getAvailableLanguages();
+                    
+                    html += `<p class="success">✓ Configuration loaded</p>`;
+                    html += `<p>Volunteer roles: ${roles.length}</p>`;
+                    html += `<p>Available languages: ${languages.join(', ')}</p>`;
+                    
+                    // Test translation
+                    const testTranslation = ParkrunConfig.getTranslation('en', 'title');
+                    html += `<p>Test translation (title): "${testTranslation}"</p>`;
+                    
+                    // List first 3 roles
+                    html += '<p>Sample roles:</p><ul>';
+                    roles.slice(0, 3).forEach(role => {
+                        html += `<li>${role}</li>`;
+                    });
+                    html += '</ul>';
+                    
+                } catch (e) {
+                    html += `<p class="error">✗ Error: ${e.message}</p>`;
+                }
+            } else {
+                html += '<p class="error">✗ ParkrunConfig not available</p>';
+            }
+            
+            configTest.innerHTML = html;
+        }
+        
+        // Run tests when page loads
+        window.onload = function() {
+            setTimeout(() => {
+                testScripts();
+                testDates();
+                testData();
+                testConfig();
+            }, 100);
+        };
+    </script>
+</body>
+</html>

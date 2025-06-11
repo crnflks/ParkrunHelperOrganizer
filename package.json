@@ -1,0 +1,25 @@
+{
+    "name": "parkrun-helper-organizer",
+    "version": "2.0.0",
+    "description": "Parkrun Helper Organizer with automated backup system",
+    "main": "auto-backup.js",
+    "scripts": {
+      "backup": "node auto-backup.js",
+      "setup": "node -e \"console.log('Run setup-backup.sh (Linux/Mac) or setup-backup.bat (Windows)')\"",
+      "install": "npm install"
+    },
+    "keywords": [
+      "parkrun",
+      "volunteer",
+      "organizer",
+      "backup"
+    ],
+    "author": "Parkrun Helper Organizer",
+    "license": "MIT",
+    "dependencies": {
+      "puppeteer": "^21.0.0"
+    },
+    "engines": {
+      "node": ">=14.0.0"
+    }
+  }

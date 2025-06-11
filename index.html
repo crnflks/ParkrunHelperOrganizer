@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Monrepos Parkrun Helper Organizer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 10px;
+            overflow-x: hidden;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border: 2px solid #FF6900;
+        }
+
+        /* Page navigation */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        h1 {
+            color: #003D71;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+        }
+
+        h1 svg {
+            stroke: #003D71;
+        }
+
+        .language-switcher {
+            display: flex;
+            gap: 5px;
+            background: #f5f5f5;
+            padding: 5px;
+            border-radius: 8px;
+            border: 2px solid #FF6900;
+        }
+
+        .lang-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: #003D71;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn.active {
+            background: #FF6900;
+            color: white;
+        }
+
+        .lang-btn:hover:not(.active) {
+            background: rgba(255, 105, 0, 0.3);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .nav-btn {
+            flex: 1;
+            padding: 12px 20px;
+            background: #003D71;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-btn:hover {
+            background: #FF6900;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-btn svg {
+            stroke: white;
+        }
+
+        .nav-btn:hover svg {
+            stroke: white;
+        }
+
+        .back-btn {
+            width: auto;
+            padding: 10px 20px;
+            background: #003D71;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .back-btn:hover {
+            background: #002147;
+        }
+
+        .week-selector {
+            margin-bottom: 20px;
+            background: #FF6900;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .week-selector-label {
+            color: white;
+            font-weight: 900;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        select {
+            width: 100%;
+            padding: 16px;
+            font-size: 18px;
+            font-weight: 700;
+            border: 1px solid black;
+            border-radius: 8px;
+            background: white;
+            color: black;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg width='14' height='8' viewBox='0 0 14 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M1 1L7 7L13 1' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 45px;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #000000;
+            box-shadow: 0 0 0 4px rgba(255, 237, 0, 0.5);
+        }
+        
+        .helper-select:focus {
+            outline: none;
+            border-color: #667eea;
+            border-right: 1px solid #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            z-index: 1;
+        }
+
+        /* Missing positions alert */
+        .missing-positions-alert {
+            background: #fff5f0;
+            border: 2px solid #FF6900;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .missing-alert-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            color: #003D71;
+            font-weight: 700;
+        }
+
+        .missing-alert-header svg {
+            stroke: #003D71;
+        }
+
+        .missing-positions-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .missing-position-chip {
+            background: #003D71;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 700;
+        }
+
+        .all-filled-message {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #1b5e20;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .all-filled-message svg {
+            stroke: #4caf50;
+        }
+
+        .volunteer-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            overflow-x: auto;
+            border: 2px solid #003D71;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th {
+            background: #003D71;
+            color: white;
+            padding: 15px 10px;
+            text-align: left;
+            font-weight: 900;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        th:first-child {
+            width: 35%;
+        }
+
+        th:last-child {
+            width: 65%;
+        }
+
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e5e5;
+            background: white;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: #f8f9fa;
+        }
+
+        .role-cell {
+            font-weight: 700;
+            color: #003D71;
+            white-space: nowrap;
+            width: 35%;
+            padding-right: 10px;
+        }
+
+        .helper-cell {
+            width: 65%;
+            padding-left: 5px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0;
+            align-items: center;
+            width: 100%;
+        }
+
+        .helper-select {
+            width: 80%;
+            padding: 8px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px 0 0 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            border-right: none;
+        }
+
+        .clear-helper-btn {
+            width: 20%;
+            min-width: 50px;
+            height: 36px;
+            padding: 0;
+            background: #fee;
+            color: #e53e3e;
+            border: 1px solid #e2e8f0;
+            border-left: 1px solid #f1f5f9;
+            border-radius: 0 6px 6px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .clear-helper-btn:hover {
+            background: #fdd;
+            color: #c53030;
+            border-color: #feb2b2;
+        }
+
+        .clear-helper-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: white;
+        }
+
+        /* Team summary page styles */
+        .team-summary {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 2px solid #FF6900;
+        }
+
+        .summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #FF6900;
+        }
+
+        .summary-title {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: #003D71;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f5f5f5;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid #003D71;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 900;
+        }
+
+        .stat-filled {
+            color: #4caf50;
+        }
+
+        .stat-missing {
+            color: #cc0000;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #003D71;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        .positions-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .position-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-radius: 8px;
+            background: #f5f5f5;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .position-item.filled {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+
+        .position-item.missing {
+            background: #fff5f0;
+            border-color: #FF6900;
+        }
+
+        .position-icon {
+            width: 32px;
+            height: 32px;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .position-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .position-filled svg {
+            stroke: #4caf50;
+        }
+
+        .position-missing svg {
+            stroke: #cc0000;
+        }
+
+        .position-details {
+            flex: 1;
+        }
+
+        .position-role {
+            font-weight: 900;
+            color: #003D71;
+            font-size: 1rem;
+        }
+
+        .position-helper {
+            font-size: 0.9rem;
+            color: #333333;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .position-missing .position-helper {
+            color: #cc0000;
+            font-style: italic;
+            font-weight: 700;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 140px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .export-btn {
+            background: #FF6900;
+            color: white;
+            border: 2px solid #FF6900;
+        }
+
+        .export-btn:hover {
+            background: #003D71;
+            color: white;
+            border-color: #003D71;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .export-btn svg {
+            stroke: white;
+        }
+
+        .export-btn:hover svg {
+            stroke: white;
+        }
+
+        .clear-btn {
+            background: #cc0000;
+            color: white;
+            border: 2px solid #cc0000;
+        }
+
+        .clear-btn:hover {
+            background: #990000;
+            border-color: #990000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(153, 0, 0, 0.3);
+        }
+
+        .clear-btn svg {
+            stroke: white;
+        }
+
+        .clear-btn:hover svg {
+            stroke: white;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 61, 113, 0.7);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            max-width: 500px;
+            margin: 50px auto;
+            border-radius: 12px;
+            padding: 25px;
+            position: relative;
+            animation: slideIn 0.3s ease;
+            border: 3px solid #FF6900;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #FF6900;
+        }
+
+        .modal-header h2 {
+            color: #003D71;
+            font-size: 1.5rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .close-modal {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .close-modal:hover {
+            background: #FF6900;
+        }
+
+        .close-modal:hover svg {
+            stroke: white;
+        }
+
+        .close-modal svg {
+            stroke: #003D71;
+        }
+
+        .helper-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .helper-form input {
+            flex: 1;
+            min-width: 150px;
+            padding: 10px;
+            border: 2px solid #003D71;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .helper-form input:focus {
+            outline: none;
+            border-color: #FF6900;
+            box-shadow: 0 0 0 3px rgba(255, 105, 0, 0.3);
+        }
+
+        .add-helper-btn {
+            background: #003D71;
+            color: white;
+            padding: 10px 20px;
+            white-space: nowrap;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .add-helper-btn:hover {
+            background: #FF6900;
+            color: white;
+        }
+
+        .helpers-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .helper-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .helper-item:hover {
+            background: #fff5f0;
+            border-color: #FF6900;
+        }
+
+        .helper-info {
+            flex: 1;
+        }
+
+        .helper-name {
+            font-weight: 900;
+            color: #003D71;
+        }
+
+        .helper-id {
+            color: #333333;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .delete-helper-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            background: #cc0000;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .delete-helper-btn:hover {
+            background: #990000;
+            transform: scale(1.1);
+        }
+
+        .no-helpers {
+            text-align: center;
+            padding: 40px;
+            color: #666666;
+            font-weight: 600;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 8px;
+            }
+
+            .container {
+                padding: 15px;
+                border-radius: 12px;
+                border-width: 2px;
+            }
+
+            h1 {
+                font-size: 1.4rem;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .language-switcher {
+                width: 100%;
+                justify-content: center;
+                margin-top: 15px;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+            }
+
+            .week-selector {
+                padding: 15px;
+            }
+
+            select {
+                font-size: 16px;
+                padding: 14px;
+            }
+
+            th, td {
+                padding: 8px 5px;
+                font-size: 12px;
+            }
+
+            .role-cell {
+                font-size: 12px;
+                width: 30% !important;
+                padding-right: 5px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .helper-cell {
+                width: 70% !important;
+                padding-left: 3px;
+            }
+
+            .helper-select {
+                font-size: 13px;
+                padding: 6px 8px;
+                width: 80%;
+                height: 32px;
+            }
+            
+            .clear-helper-btn {
+                width: 20%;
+                min-width: 40px;
+                height: 32px;
+            }
+            
+            .clear-helper-btn svg {
+                width: 14px;
+                height: 14px;
+            }
+            
+            .clear-helper-btn svg {
+                width: 14px;
+                height: 14px;
+            }
+
+            .missing-position-chip {
+                font-size: 0.75rem;
+                padding: 4px 10px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+                font-size: 15px;
+                padding: 12px 16px;
+            }
+
+            .helper-form {
+                flex-direction: column;
+            }
+
+            .helper-form input {
+                width: 100%;
+            }
+
+            .summary-stats {
+                flex-direction: row;
+                gap: 20px;
+            }
+
+            .stat-number {
+                font-size: 1.5rem;
+            }
+
+            .position-item {
+                padding: 12px 15px;
+            }
+
+            .position-role {
+                font-size: 0.9rem;
+            }
+
+            .position-helper {
+                font-size: 0.8rem;
+            }
+
+            /* Prevent horizontal scroll */
+            .volunteer-table {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                min-width: 100%;
+            }
+
+            /* Modal adjustments */
+            .modal {
+                padding: 10px;
+            }
+
+            .modal-content {
+                margin: 20px auto;
+                padding: 20px;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #003D71;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 2000;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 2px solid #FF6900;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Main Page -->
+        <div id="mainPage" class="page active">
+            <div class="header">
+                <h1>
+                    <img src="https://cdn.brandfetch.io/idtc7X5XcQ/w/400/h/400/theme/dark/icon.jpeg?c=1dxbfHSJFAPEGdCLU4o5B" alt="Parkrun Logo" style="margin-right: 10px; max-height: 60px; width: auto;">
+                    <span data-i18n="title">Monrepos Parkrun Helper Organizer</span>
+                </h1>
+                <div class="language-switcher">
+                    <button class="lang-btn active" onclick="setLanguage('en')">EN</button>
+                    <button class="lang-btn" onclick="setLanguage('de')">DE</button>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="openHelperModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <line x1="20" y1="8" x2="20" y2="14"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                    </svg>
+                    <span data-i18n="manageHelpers">Manage Helpers</span>
+                </button>
+                <button class="nav-btn" onclick="showTeamView()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span data-i18n="viewTeam">View Team</span>
+                </button>
+            </div>
+
+            <div class="week-selector">
+                <div class="week-selector-label">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <span data-i18n="selectWeek">Select Week</span>
+                </div>
+                <select id="weekSelect" onchange="loadWeekData()">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+            </div>
+
+            <div id="missingPositionsAlert">
+                <!-- Missing positions alert will be populated here -->
+            </div>
+
+            <div class="volunteer-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th data-i18n="activity">Activity</th>
+                            <th data-i18n="helper">Helper</th>
+                        </tr>
+                    </thead>
+                    <tbody id="volunteerTableBody">
+                        <!-- Rows will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="actions">
+                <button class="export-btn" onclick="exportToEmail()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    <span data-i18n="exportEmail">Export to Email</span>
+                </button>
+                <button class="clear-btn" onclick="clearWeekData()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                    <span data-i18n="clearWeek">Clear Week</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Team View Page -->
+        <div id="teamPage" class="page">
+            <button class="nav-btn back-btn" onclick="showMainView()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                <span data-i18n="back">Back</span>
+            </button>
+
+            <div class="team-summary" id="teamSummary">
+                <!-- Team summary will be populated here -->
+            </div>
+
+            <div class="actions">
+                <button class="export-btn" onclick="exportToEmail()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    <span data-i18n="exportEmail">Export to Email</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Helper Management Modal -->
+    <div class="modal" id="helperModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 data-i18n="manageHelpers">Manage Helpers</h2>
+                <button class="close-modal" onclick="closeHelperModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#003D71" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="helper-form">
+                <input type="text" id="newHelperName" placeholder="Name" data-i18n-placeholder="enterName">
+                <input type="text" id="newHelperId" placeholder="Parkrun ID" data-i18n-placeholder="enterId">
+                <button class="add-helper-btn" onclick="addHelper()">
+                    <span data-i18n="addHelper">Add Helper</span>
+                </button>
+            </div>
+
+            <div class="helpers-list" id="helpersList">
+                <!-- Helper items will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Load external data files -->
+    <script src="parkrun-config.js"></script>
+    <script src="parkrun-data.js"></script>
+    
+    <script>
+        // Current language (will be loaded from ParkrunData)
+        let currentLanguage = 'en';
+
+        // Page navigation
+        function showMainView() {
+            document.getElementById('mainPage').classList.add('active');
+            document.getElementById('teamPage').classList.remove('active');
+        }
+
+        function showTeamView() {
+            document.getElementById('mainPage').classList.remove('active');
+            document.getElementById('teamPage').classList.add('active');
+            updateTeamSummary();
+        }
+
+        // Set language
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            ParkrunData.setLanguage(lang);
+            
+            // Update language buttons
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update all translations
+            updateTranslations();
+            createVolunteerRows();
+            loadWeekData();
+            updateHelpersList();
+        }
+
+        // Update translations
+        function updateTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                element.textContent = ParkrunConfig.getTranslation(currentLanguage, key);
+            });
+            
+            // Update placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-i18n-placeholder');
+                element.placeholder = ParkrunConfig.getTranslation(currentLanguage, key);
+            });
+        }
+
+        // Get translated role name
+        function getTranslatedRole(role) {
+            return ParkrunConfig.getTranslatedRole(currentLanguage, role);
+        }
+
+        // Get all Saturdays from today until end of year
+        function getSaturdays() {
+            const saturdays = [];
+            const today = new Date();
+            const year = today.getFullYear();
+            const endOfYear = new Date(year, 11, 31);
+            
+            // Find next Saturday (including today if it's Saturday)
+            let current = new Date(today);
+            const dayOfWeek = current.getDay();
+            
+            // If today is not Saturday, find the next Saturday
+            if (dayOfWeek !== 6) {
+                const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
+                current.setDate(current.getDate() + daysUntilSaturday);
+            }
+            
+            // Add all Saturdays from current until end of year
+            while (current <= endOfYear) {
+                saturdays.push(new Date(current));
+                current.setDate(current.getDate() + 7);
+            }
+            
+            // If no Saturdays found (e.g., end of year), add next year's Saturdays
+            if (saturdays.length === 0) {
+                const nextYear = year + 1;
+                const endOfNextYear = new Date(nextYear, 11, 31);
+                current = new Date(nextYear, 0, 1);
+                
+                // Find first Saturday of next year
+                const firstDayOfYear = current.getDay();
+                if (firstDayOfYear !== 6) {
+                    const daysUntilSaturday = (6 - firstDayOfYear + 7) % 7;
+                    current.setDate(current.getDate() + daysUntilSaturday);
+                }
+                
+                // Add Saturdays for next year (limit to 52 weeks)
+                let weeksAdded = 0;
+                while (current <= endOfNextYear && weeksAdded < 52) {
+                    saturdays.push(new Date(current));
+                    current.setDate(current.getDate() + 7);
+                    weeksAdded++;
+                }
+            }
+            
+            return saturdays;
+        }
+
+        // Format date for display
+        function formatDate(date) {
+            const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+            const locale = currentLanguage === 'de' ? 'de-DE' : 'en-GB';
+            return date.toLocaleDateString(locale, options);
+        }
+
+        // Format date as key
+        function dateToKey(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // Populate week selector
+        function populateWeekSelector() {
+            const select = document.getElementById('weekSelect');
+            const currentValue = select.value;
+            select.innerHTML = '';
+            const saturdays = getSaturdays();
+            
+            if (saturdays.length === 0) {
+                return;
+            }
+            
+            saturdays.forEach(saturday => {
+                const option = document.createElement('option');
+                option.value = dateToKey(saturday);
+                option.textContent = formatDate(saturday);
+                select.appendChild(option);
+            });
+            
+            // Restore previous value if it exists, otherwise select first option
+            if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+                select.value = currentValue;
+            } else if (select.options.length > 0) {
+                select.value = select.options[0].value;
+            }
+        }
+
+        // Create volunteer table rows
+        function createVolunteerRows() {
+            const tbody = document.getElementById('volunteerTableBody');
+            tbody.innerHTML = '';
+            
+            ParkrunConfig.volunteerRoles.forEach(role => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="role-cell">${getTranslatedRole(role)}</td>
+                    <td class="helper-cell">
+                        <div class="input-group">
+                            <select class="helper-select" data-role="${role}" onchange="saveVolunteerData(this)">
+                                <option value="">${ParkrunConfig.getTranslation(currentLanguage, 'selectHelper')}</option>
+                            </select>
+                            <button class="clear-helper-btn" onclick="clearHelper('${role}')" title="Remove">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // Populate helper dropdowns
+            updateHelperDropdowns();
+        }
+
+        // Update helper dropdowns
+        function updateHelperDropdowns() {
+            const selects = document.querySelectorAll('.helper-select');
+            const helpers = ParkrunData.getHelpers();
+            
+            selects.forEach(select => {
+                const currentValue = select.value;
+                
+                // Clear existing options except the first one
+                while (select.options.length > 1) {
+                    select.remove(1);
+                }
+                
+                // Add helpers
+                Object.entries(helpers).forEach(([helperId, helper]) => {
+                    const option = document.createElement('option');
+                    option.value = helperId;
+                    option.textContent = `${helper.name} (${helper.id})`;
+                    select.appendChild(option);
+                });
+                
+                // Restore previous value if it exists
+                if (currentValue) {
+                    select.value = currentValue;
+                }
+            });
+        }
+
+        // Update missing positions alert
+        function updateMissingPositionsAlert() {
+            const selectedWeek = document.getElementById('weekSelect').value;
+            if (!selectedWeek) {
+                return;
+            }
+            
+            const weekData = ParkrunData.getWeekData(selectedWeek);
+            
+            const missingRoles = [];
+            ParkrunConfig.volunteerRoles.forEach(role => {
+                if (!weekData[role] || !weekData[role].helperId) {
+                    missingRoles.push(role);
+                }
+            });
+            
+            const alertContainer = document.getElementById('missingPositionsAlert');
+            if (!alertContainer) {
+                return;
+            }
+            
+            if (missingRoles.length === 0) {
+                alertContainer.innerHTML = `
+                    <div class="all-filled-message">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        ${ParkrunConfig.getTranslation(currentLanguage, 'allPositionsFilled')}
+                    </div>
+                `;
+            } else {
+                const missingChips = missingRoles.map(role => 
+                    `<div class="missing-position-chip">${getTranslatedRole(role)}</div>`
+                ).join('');
+                
+                alertContainer.innerHTML = `
+                    <div class="missing-positions-alert">
+                        <div class="missing-alert-header">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#003D71" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            ${ParkrunConfig.getTranslation(currentLanguage, 'missingPositions')} (${missingRoles.length})
+                        </div>
+                        <div class="missing-positions-list">
+                            ${missingChips}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Load data for selected week
+        function loadWeekData() {
+            const selectedWeek = document.getElementById('weekSelect').value;
+            if (!selectedWeek) {
+                return;
+            }
+            
+            const weekData = ParkrunData.getWeekData(selectedWeek);
+            
+            const selects = document.querySelectorAll('.helper-select');
+            selects.forEach(select => {
+                const role = select.dataset.role;
+                select.value = weekData[role]?.helperId || '';
+            });
+            
+            updateMissingPositionsAlert();
+        }
+
+        // Update team summary
+        function updateTeamSummary() {
+            const selectedWeek = document.getElementById('weekSelect').value;
+            const weekData = ParkrunData.getWeekData(selectedWeek);
+            const selectedDate = new Date(selectedWeek);
+            
+            let filledCount = 0;
+            let missingCount = 0;
+            let positionsHtml = '';
+            
+            ParkrunConfig.volunteerRoles.forEach(role => {
+                const hasHelper = weekData[role] && weekData[role].helperId;
+                
+                if (hasHelper) {
+                    filledCount++;
+                    const helper = weekData[role];
+                    positionsHtml += `
+                        <div class="position-item filled">
+                            <div class="position-icon position-filled">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                            </div>
+                            <div class="position-details">
+                                <div class="position-role">${getTranslatedRole(role)}</div>
+                                <div class="position-helper">${helper.name} (${helper.id})</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    missingCount++;
+                    positionsHtml += `
+                        <div class="position-item missing">
+                            <div class="position-icon position-missing">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#cc0000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                            </div>
+                            <div class="position-details">
+                                <div class="position-role">${getTranslatedRole(role)}</div>
+                                <div class="position-helper">${ParkrunConfig.getTranslation(currentLanguage, 'positionMissing')}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            const summaryHtml = `
+                <div class="summary-header">
+                    <div class="summary-title">${ParkrunConfig.getTranslation(currentLanguage, 'teamOverview')}: ${formatDate(selectedDate)}</div>
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <div class="stat-number stat-filled">${filledCount}</div>
+                            <div class="stat-label">${ParkrunConfig.getTranslation(currentLanguage, 'filled')}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number stat-missing">${missingCount}</div>
+                            <div class="stat-label">${ParkrunConfig.getTranslation(currentLanguage, 'missing')}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="positions-grid">
+                    ${positionsHtml}
+                </div>
+            `;
+            
+            document.getElementById('teamSummary').innerHTML = summaryHtml;
+        }
+
+        // Save volunteer data
+        function saveVolunteerData(select) {
+            const selectedWeek = document.getElementById('weekSelect').value;
+            const role = select.dataset.role;
+            const helperId = select.value;
+            
+            if (helperId) {
+                const helper = ParkrunData.getHelper(helperId);
+                ParkrunData.updateVolunteer(selectedWeek, role, {
+                    helperId: helperId,
+                    name: helper.name,
+                    id: helper.id
+                });
+            } else {
+                ParkrunData.updateVolunteer(selectedWeek, role, null);
+            }
+            
+            updateMissingPositionsAlert();
+        }
+
+        // Clear helper for a role
+        function clearHelper(role) {
+            const selectedWeek = document.getElementById('weekSelect').value;
+            ParkrunData.clearVolunteer(selectedWeek, role);
+            loadWeekData();
+        }
+
+        // Clear week data
+        function clearWeekData() {
+            if (confirm(ParkrunConfig.getTranslation(currentLanguage, 'clearConfirm'))) {
+                const selectedWeek = document.getElementById('weekSelect').value;
+                ParkrunData.clearWeek(selectedWeek);
+                loadWeekData();
+                showToast(ParkrunConfig.getTranslation(currentLanguage, 'weekCleared'));
+            }
+        }
+
+        // Export to email
+        function exportToEmail() {
+            const selectedWeek = document.getElementById('weekSelect').value;
+            const weekData = ParkrunData.getWeekData(selectedWeek);
+            const selectedDate = new Date(selectedWeek);
+            
+            let emailBody = `${ParkrunConfig.getTranslation(currentLanguage, 'emailSubject')} - ${formatDate(selectedDate)}\n\n`;
+            emailBody += `${ParkrunConfig.getTranslation(currentLanguage, 'activity')} | ${ParkrunConfig.getTranslation(currentLanguage, 'name')} | ${ParkrunConfig.getTranslation(currentLanguage, 'parkrunId')}\n`;
+            emailBody += '---------|------|------------\n';
+            
+            let hasVolunteers = false;
+            ParkrunConfig.volunteerRoles.forEach(role => {
+                if (weekData[role]) {
+                    hasVolunteers = true;
+                    const name = weekData[role].name || '-';
+                    const id = weekData[role].id || '-';
+                    emailBody += `${getTranslatedRole(role)} | ${name} | ${id}\n`;
+                }
+            });
+            
+            if (!hasVolunteers) {
+                showToast(ParkrunConfig.getTranslation(currentLanguage, 'noVolunteers'));
+                return;
+            }
+            
+            const subject = `${ParkrunConfig.getTranslation(currentLanguage, 'emailSubject')} - ${formatDate(selectedDate)}`;
+            const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
+            
+            window.location.href = mailtoLink;
+            showToast(ParkrunConfig.getTranslation(currentLanguage, 'openingEmail'));
+        }
+
+        // Helper Management Functions
+        function openHelperModal() {
+            document.getElementById('helperModal').style.display = 'block';
+            updateHelpersList();
+        }
+
+        function closeHelperModal() {
+            document.getElementById('helperModal').style.display = 'none';
+            document.getElementById('newHelperName').value = '';
+            document.getElementById('newHelperId').value = '';
+        }
+
+        function addHelper() {
+            const name = document.getElementById('newHelperName').value.trim();
+            const id = document.getElementById('newHelperId').value.trim();
+            
+            if (!name || !id) {
+                showToast(ParkrunConfig.getTranslation(currentLanguage, 'fillBothFields'));
+                return;
+            }
+            
+            ParkrunData.addHelper(name, id);
+            
+            document.getElementById('newHelperName').value = '';
+            document.getElementById('newHelperId').value = '';
+            
+            updateHelpersList();
+            updateHelperDropdowns();
+            showToast(ParkrunConfig.getTranslation(currentLanguage, 'helperAdded'));
+        }
+
+        function deleteHelper(helperId) {
+            ParkrunData.deleteHelper(helperId);
+            
+            updateHelpersList();
+            updateHelperDropdowns();
+            loadWeekData();
+            showToast(ParkrunConfig.getTranslation(currentLanguage, 'helperDeleted'));
+        }
+
+        function updateHelpersList() {
+            const helpersList = document.getElementById('helpersList');
+            helpersList.innerHTML = '';
+            
+            const helpers = ParkrunData.getHelpers();
+            const helperEntries = Object.entries(helpers);
+            
+            if (helperEntries.length === 0) {
+                helpersList.innerHTML = `<div class="no-helpers">${ParkrunConfig.getTranslation(currentLanguage, 'noHelpers')}</div>`;
+                return;
+            }
+            
+            helperEntries.forEach(([helperId, helper]) => {
+                const helperItem = document.createElement('div');
+                helperItem.className = 'helper-item';
+                helperItem.innerHTML = `
+                    <div class="helper-info">
+                        <div class="helper-name">${helper.name}</div>
+                        <div class="helper-id">${helper.id}</div>
+                    </div>
+                    <button class="delete-helper-btn" onclick="deleteHelper('${helperId}')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                    </button>
+                `;
+                helpersList.appendChild(helperItem);
+            });
+        }
+
+        // Show toast notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('helperModal');
+            if (event.target === modal) {
+                closeHelperModal();
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            // Initialize data
+            if (typeof ParkrunData !== 'undefined') {
+                ParkrunData.init();
+                currentLanguage = ParkrunData.getLanguage();
+            }
+            
+            // Set initial language button state
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase() === currentLanguage) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            updateTranslations();
+            populateWeekSelector();
+            createVolunteerRows();
+            
+            // Load week data if we have weeks
+            const weekSelect = document.getElementById('weekSelect');
+            if (weekSelect && weekSelect.options.length > 0) {
+                loadWeekData();
+            }
+        };
+
+        // Update week selector when language changes
+        window.addEventListener('languagechange', populateWeekSelector);
+    </script>
+</body>
+</html>
