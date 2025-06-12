@@ -1,137 +1,424 @@
-# Parkrun Helper Organizer - Separated Database Files
+# Parkrun Helper Organizer
 
-## Overview
+A modern, container-first web application for managing Parkrun volunteer schedules with Microsoft Entra ID authentication and Azure cloud integration.
 
-This project has been restructured to separate the data storage from the main HTML file. This ensures that your volunteer data and helper database won't be lost when updating the HTML interface. The system now includes automated backup capabilities.
+## 🏗️ Architecture Overview
 
-## File Structure
+This application follows a microservices architecture deployed with Docker Swarm:
 
-```
-parkrun-organizer/
-├── index.html           # Main application interface (updated)
-├── parkrun-data.js      # Data storage and management module
-├── parkrun-config.js    # Configuration, roles, and translations
-├── backup-utility.html  # Manual backup and restore tool
-├── backup-manager.js    # Browser-based backup manager (NEW)
-├── auto-backup.js       # Node.js automated backup script (NEW)
-├── setup-backup.sh      # Automated backup setup script (NEW)
-└── README.md           # This file
-```
+- **Frontend**: React SPA with MSAL authentication
+- **Backend**: NestJS API with JWT validation
+- **Database**: Azure Cosmos DB (primary) with MongoDB fallback
+- **Authentication**: Microsoft Entra ID (Azure AD)
+- **Orchestration**: Docker Swarm with Traefik load balancer
 
-## Files Description
+For detailed architecture information, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
-### Core Files
+## 🔧 Prerequisites
 
-1. **`index.html`** - The main application interface that now references external JavaScript files
-2. **`parkrun-data.js`** - Handles all data storage and retrieval operations
-3. **`parkrun-config.js`** - Contains volunteer roles and translations
-4. **`backup-utility.html`** - Standalone tool for manual backups
+### Required Software
+- **Docker** ≥ 20.10 with Docker Swarm support
+- **Terraform** ≥ 1.6
+- **Azure subscription** with appropriate permissions
+- **Node.js** ≥ 18 (for local development)
 
-### Automated Backup Files (NEW)
+### Azure Permissions Required
+- Create App Registrations in Azure Entra ID
+- Create Cosmos DB accounts
+- Create Resource Groups
 
-5. **`backup-manager.js`** - Browser-based backup reminder system
-   - Tracks backup history
-   - Shows reminders when backups are needed
-   - Displays backup status badge
-   - Enables quick backups from within the app
+## 🚀 Quick Start
 
-6. **`auto-backup.js`** - Node.js script for scheduled backups
-   - Runs automatically at specified times
-   - Saves backups to a designated folder
-   - Automatically deletes backups older than 7 days
-   - Can be scheduled with cron or Task Scheduler
+### 1. Infrastructure Setup
 
-7. **`setup-backup.sh`** - Setup script for Linux/Mac users
-   - Configures the automated backup system
-   - Sets up cron jobs for daily backups
-   - Tests the backup system
+First, provision the Azure infrastructure:
 
-## Automated Backup System
-
-### Browser-Based Backup Manager
-
-The browser-based backup manager provides:
-- **Automatic reminders** when 24 hours have passed since last backup
-- **Backup status badge** showing when the last backup was made
-- **Quick backup** functionality directly from the main app
-
-To enable it, add this line to your `index.html` before the closing `</body>` tag:
-```html
-<script src="backup-manager.js"></script>
-```
-
-### Automated Daily Backups (Node.js)
-
-For fully automated backups that run even when your browser is closed:
-
-#### Prerequisites
-1. Install [Node.js](https://nodejs.org/)
-2. Install Puppeteer: `npm install puppeteer`
-
-#### Linux/Mac Setup
-1. Run the setup script:
-   ```bash
-   chmod +x setup-backup.sh
-   ./setup-backup.sh
-   ```
-2. Follow the prompts to configure backup location and schedule
-
-#### Windows Setup
-1. Update the backup folder path in `auto-backup.js`
-2. Install dependencies: `npm install puppeteer`
-3. Test the script: `node auto-backup.js`
-4. Schedule with Task Scheduler:
-   - Open Task Scheduler
-   - Create Basic Task
-   - Set trigger: Daily at 5:00 AM
-   - Set action: Start a program
-   - Program: `node.exe`
-   - Arguments: `C:\path\to\auto-backup.js`
-
-#### Manual Backup
-Run the backup script manually anytime:
 ```bash
-node auto-backup.js
+cd infra/terraform
+
+# Initialize Terraform
+terraform init
+
+# Review the planned changes
+terraform plan
+
+# Apply the infrastructure
+terraform apply
+
+# Export configuration for Docker secrets
+terraform output -json > ../../terraform-outputs.json
 ```
 
-### Backup Features
+### 2. Docker Swarm Initialization
 
-- **Rolling backups**: Keeps last 7 days of backups
-- **Automatic cleanup**: Deletes old backups automatically
-- **Timestamped files**: Each backup includes date and time
-- **Backup history**: Track when backups were made
-- **Multiple backup methods**: Browser-based or automated
+```bash
+# Initialize Docker Swarm (if not already done)
+docker swarm init
 
-## Setup Instructions
+# Verify swarm status
+docker node ls
+```
 
-1. **Save all files in the same directory**
-2. **Add backup manager to index.html** (optional but recommended):
-   ```html
-   <script src="backup-manager.js"></script>
-   ```
-3. **Set up automated backups** (optional):
-   - Linux/Mac: Run `./setup-backup.sh`
-   - Windows: Follow Windows setup instructions above
+### 3. Build and Deploy
 
-## Backup File Location
+```bash
+# Build all container images
+./scripts/build-images.sh
 
-- **Browser downloads**: Default downloads folder
-- **Automated backups**: Configured during setup (default: `~/parkrun-backups`)
-- **File format**: `parkrun-backup-YYYY-MM-DD_HH-MM-SS.json`
+# Create Docker secrets from Terraform outputs
+./scripts/create-secrets.sh
 
-## Troubleshooting
+# Deploy the application stack
+./scripts/deploy-stack.sh
+```
 
-### Automated Backup Issues
+### 4. Access the Application
 
-**Script not running?**
-- Check Node.js is installed: `node --version`
-- Verify cron job: `crontab -l`
-- Check backup logs: `cat ~/parkrun-backups/backup.log`
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8080/api
+- **API Documentation**: http://localhost:8080/api/docs
+- **Traefik Dashboard**: http://localhost:8080
 
-**Puppeteer errors?**
-- Reinstall: `npm install puppeteer`
-- Check system requirements for headless Chrome
+## 📋 Detailed Deployment Guide
 
-**Permission denied?**
-- Make script executable: `chmod +x auto-backup.js`
-- Check folder permissions
+### Step 1: Azure Infrastructure
+
+The Terraform configuration creates:
+- Azure Entra ID application registration
+- OAuth client secret and API scopes
+- Cosmos DB account with containers
+- Resource group for all resources
+
+#### Configure Terraform Variables
+
+Create `infra/terraform/terraform.tfvars`:
+
+```hcl
+project_name = "parkrun-helper"
+environment  = "prod"
+location     = "West Europe"
+
+# Optional: customize URLs for production
+frontend_url = "https://your-domain.com"
+backend_url  = "https://api.your-domain.com"
+
+tags = {
+  Project     = "parkrun-helper"
+  Environment = "production"
+  ManagedBy   = "terraform"
+}
+```
+
+#### Deploy Infrastructure
+
+```bash
+cd infra/terraform
+terraform init
+terraform apply -var-file="terraform.tfvars"
+```
+
+Save the outputs for secret creation:
+```bash
+terraform output -json > ../../terraform-outputs.json
+```
+
+### Step 2: Docker Configuration
+
+#### Environment Variables
+
+For local development, create environment files:
+
+**Backend (.env)**:
+```env
+NODE_ENV=development
+PORT=8080
+
+# Azure AD Configuration
+AZURE_TENANT_ID=your-tenant-id
+AZURE_CLIENT_ID=your-client-id
+AZURE_CLIENT_SECRET=your-client-secret
+AZURE_AUTHORITY=https://login.microsoftonline.com/your-tenant-id
+
+# Database Configuration
+COSMOS_ENDPOINT=https://your-cosmos.documents.azure.com:443/
+COSMOS_KEY=your-cosmos-key
+COSMOS_DATABASE_NAME=parkrunhelper
+
+# MongoDB fallback (for local development)
+MONGODB_URI=mongodb://admin:password123@localhost:27017/parkrunhelper?authSource=admin
+```
+
+**Frontend (.env)**:
+```env
+REACT_APP_AZURE_CLIENT_ID=your-client-id
+REACT_APP_AZURE_AUTHORITY=https://login.microsoftonline.com/your-tenant-id
+REACT_APP_API_SCOPE=api://your-client-id/api.access
+REACT_APP_API_BASE_URL=http://localhost:8080/api
+REACT_APP_REDIRECT_URI=http://localhost:3000
+REACT_APP_POST_LOGOUT_REDIRECT_URI=http://localhost:3000
+```
+
+### Step 3: Build Container Images
+
+```bash
+# Build all images
+./scripts/build-images.sh
+
+# Or build individually
+docker build -t parkrun-helper/database:latest ./database
+docker build -t parkrun-helper/backend:latest ./backend
+docker build -t parkrun-helper/frontend:latest ./frontend
+```
+
+### Step 4: Create Docker Secrets
+
+```bash
+# Automatic creation from Terraform outputs
+./scripts/create-secrets.sh
+
+# Or create manually
+echo "your-tenant-id" | docker secret create azure_tenant_id -
+echo "your-client-id" | docker secret create azure_client_id -
+# ... etc for all required secrets
+```
+
+Required secrets:
+- `azure_tenant_id`
+- `azure_client_id`
+- `azure_client_secret`
+- `azure_authority`
+- `api_scope`
+- `cosmos_endpoint`
+- `cosmos_key`
+- `cosmos_database_name`
+- `mongo_root_username`
+- `mongo_root_password`
+
+### Step 5: Deploy Stack
+
+```bash
+# Deploy to Docker Swarm
+./scripts/deploy-stack.sh
+
+# Monitor deployment
+docker stack services parkrun-helper
+docker service logs parkrun-helper_frontend
+docker service logs parkrun-helper_backend
+```
+
+## 🛠️ Development Mode
+
+For local development with hot reloading:
+
+```bash
+# Start development environment
+docker-compose -f docker-compose.dev.yml up
+
+# Or run components individually
+cd backend && npm run start:dev
+cd frontend && npm start
+```
+
+## 📊 Monitoring and Management
+
+### Service Status
+```bash
+# Check stack status
+docker stack ls
+docker stack services parkrun-helper
+
+# Check individual services
+docker service ps parkrun-helper_frontend
+docker service ps parkrun-helper_backend
+docker service ps parkrun-helper_database
+```
+
+### Logs
+```bash
+# View service logs
+docker service logs -f parkrun-helper_frontend
+docker service logs -f parkrun-helper_backend
+docker service logs -f parkrun-helper_database
+
+# View container logs
+docker logs <container-id>
+```
+
+### Scaling
+```bash
+# Scale services
+docker service scale parkrun-helper_frontend=3
+docker service scale parkrun-helper_backend=3
+
+# Update services
+docker service update parkrun-helper_frontend
+```
+
+## 🔒 Security Configuration
+
+### Entra ID Application Setup
+
+After Terraform creates the application registration:
+
+1. **Configure Redirect URIs**:
+   - Web: `http://localhost:3000` (development)
+   - SPA: `http://localhost:3000`, `http://localhost:3000/redirect`
+
+2. **API Permissions**:
+   - Microsoft Graph: `User.Read` (delegated)
+
+3. **Expose API**:
+   - Scope: `api.access` (created by Terraform)
+
+### Certificate Management
+
+For production deployment with HTTPS:
+
+```bash
+# Update Traefik configuration in stack.yml
+# Add your domain and email for Let's Encrypt
+```
+
+## 🧪 Testing
+
+### API Testing
+```bash
+# Test health endpoint
+curl http://localhost:8080/api
+
+# Test with authentication (requires token)
+curl -H "Authorization: Bearer <token>" http://localhost:8080/api/secure-data
+```
+
+### Frontend Testing
+```bash
+cd frontend
+npm test
+```
+
+### Backend Testing
+```bash
+cd backend
+npm test
+```
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+#### 1. Authentication Failures
+```bash
+# Check Azure AD configuration
+# Verify client ID and tenant ID in secrets
+docker secret inspect azure_client_id
+```
+
+#### 2. Database Connection Issues
+```bash
+# Check Cosmos DB connectivity
+docker service logs parkrun-helper_backend | grep -i cosmos
+
+# Fallback to MongoDB
+docker service logs parkrun-helper_database
+```
+
+#### 3. Service Discovery Issues
+```bash
+# Check network connectivity
+docker network inspect parkrun-helper_parkrun-network
+
+# Verify service registration
+docker service ls
+```
+
+#### 4. Build Failures
+```bash
+# Check Docker build context
+docker system df
+docker system prune
+
+# Rebuild with no cache
+docker build --no-cache -t parkrun-helper/backend:latest ./backend
+```
+
+### Log Analysis
+```bash
+# Follow logs in real-time
+docker service logs -f parkrun-helper_backend 2>&1 | grep ERROR
+
+# Export logs for analysis
+docker service logs parkrun-helper_backend > backend.log
+```
+
+## 🔄 Updates and Maintenance
+
+### Application Updates
+```bash
+# Build new images
+./scripts/build-images.sh
+
+# Update services (rolling update)
+docker service update parkrun-helper_frontend
+docker service update parkrun-helper_backend
+```
+
+### Infrastructure Updates
+```bash
+cd infra/terraform
+terraform plan
+terraform apply
+```
+
+### Secret Rotation
+```bash
+# Remove old secret
+docker secret rm azure_client_secret
+
+# Create new secret
+echo "new-secret-value" | docker secret create azure_client_secret -
+
+# Update service to use new secret
+docker service update parkrun-helper_backend
+```
+
+## 📝 Environment Variables Reference
+
+### Backend Service
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `NODE_ENV` | Runtime environment | Yes | `production` |
+| `PORT` | Service port | No | `8080` |
+| `AZURE_TENANT_ID` | Azure AD tenant ID | Yes | - |
+| `AZURE_CLIENT_ID` | App registration client ID | Yes | - |
+| `AZURE_CLIENT_SECRET` | App registration secret | Yes | - |
+| `COSMOS_ENDPOINT` | Cosmos DB endpoint URL | Yes | - |
+| `COSMOS_KEY` | Cosmos DB access key | Yes | - |
+| `COSMOS_DATABASE_NAME` | Database name | Yes | `parkrunhelper` |
+
+### Frontend Service
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `REACT_APP_AZURE_CLIENT_ID` | App registration client ID | Yes | - |
+| `REACT_APP_AZURE_AUTHORITY` | Azure AD authority URL | Yes | - |
+| `REACT_APP_API_SCOPE` | API scope identifier | Yes | - |
+| `REACT_APP_API_BASE_URL` | Backend API URL | Yes | - |
+| `REACT_APP_REDIRECT_URI` | OAuth redirect URI | No | `window.location.origin` |
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+## 📞 Support
+
+For support and questions:
+- Create an issue in this repository
+- Check the [troubleshooting section](#-troubleshooting)
+- Review the [architecture documentation](./ARCHITECTURE.md)

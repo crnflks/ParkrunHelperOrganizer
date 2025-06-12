@@ -1,0 +1,200 @@
+# filename: stack.yml
+
+version: '3.8'
+
+services:
+  # MongoDB Database
+  database:
+    image: parkrun-helper/database:latest
+    networks:
+      - parkrun-network
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/mongo_root_username
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
+      MONGO_INITDB_DATABASE: parkrunhelper
+    secrets:
+      - mongo_root_username
+      - mongo_root_password
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+      placement:
+        constraints:
+          - node.role == manager
+
+  # Backend API Service
+  backend:
+    image: parkrun-helper/backend:latest
+    networks:
+      - parkrun-network
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      # Azure AD Configuration
+      AZURE_TENANT_ID_FILE: /run/secrets/azure_tenant_id
+      AZURE_CLIENT_ID_FILE: /run/secrets/azure_client_id
+      AZURE_CLIENT_SECRET_FILE: /run/secrets/azure_client_secret
+      AZURE_AUTHORITY_FILE: /run/secrets/azure_authority
+      # Cosmos DB Configuration (fallback to MongoDB if not using Cosmos)
+      COSMOS_ENDPOINT_FILE: /run/secrets/cosmos_endpoint
+      COSMOS_KEY_FILE: /run/secrets/cosmos_key
+      COSMOS_DATABASE_NAME_FILE: /run/secrets/cosmos_database_name
+      # MongoDB Configuration (for local development)
+      MONGODB_URI: mongodb://database:27017/parkrunhelper
+      MONGODB_USERNAME_FILE: /run/secrets/mongo_root_username
+      MONGODB_PASSWORD_FILE: /run/secrets/mongo_root_password
+    secrets:
+      - azure_tenant_id
+      - azure_client_id
+      - azure_client_secret
+      - azure_authority
+      - cosmos_endpoint
+      - cosmos_key
+      - cosmos_database_name
+      - mongo_root_username
+      - mongo_root_password
+    depends_on:
+      - database
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+
+  # Frontend Web Application
+  frontend:
+    image: parkrun-helper/frontend:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - parkrun-network
+    environment:
+      REACT_APP_AZURE_CLIENT_ID_FILE: /run/secrets/azure_client_id
+      REACT_APP_AZURE_AUTHORITY_FILE: /run/secrets/azure_authority
+      REACT_APP_API_SCOPE_FILE: /run/secrets/api_scope
+      REACT_APP_API_BASE_URL: http://backend:8080/api
+      REACT_APP_REDIRECT_URI: http://localhost:3000
+      REACT_APP_POST_LOGOUT_REDIRECT_URI: http://localhost:3000
+    secrets:
+      - azure_client_id
+      - azure_authority
+      - api_scope
+    depends_on:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+
+  # Reverse Proxy (Traefik)
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.email=admin@example.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - parkrun-network
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+networks:
+  parkrun-network:
+    driver: overlay
+    attachable: true
+    ipam:
+      config:
+        - subnet: 10.0.1.0/24
+
+volumes:
+  mongodb_data:
+    driver: local
+  traefik_letsencrypt:
+    driver: local
+
+secrets:
+  # Azure AD Secrets
+  azure_tenant_id:
+    external: true
+  azure_client_id:
+    external: true
+  azure_client_secret:
+    external: true
+  azure_authority:
+    external: true
+  api_scope:
+    external: true
+  
+  # Cosmos DB Secrets
+  cosmos_endpoint:
+    external: true
+  cosmos_key:
+    external: true
+  cosmos_database_name:
+    external: true
+  
+  # MongoDB Secrets
+  mongo_root_username:
+    external: true
+  mongo_root_password:
+    external: true

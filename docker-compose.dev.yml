@@ -1,0 +1,83 @@
+# filename: docker-compose.dev.yml
+
+version: '3.8'
+
+services:
+  # MongoDB Database for development
+  database:
+    build: ./database
+    container_name: parkrun-database
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: parkrunhelper
+    volumes:
+      - mongodb_dev_data:/data/db
+    networks:
+      - parkrun-dev-network
+    restart: unless-stopped
+
+  # Backend API Service for development
+  backend:
+    build: ./backend
+    container_name: parkrun-backend
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      # MongoDB Configuration
+      MONGODB_URI: mongodb://admin:password123@database:27017/parkrunhelper?authSource=admin
+      # Azure AD Configuration (use .env file)
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      AZURE_AUTHORITY: ${AZURE_AUTHORITY}
+      # Cosmos DB Configuration (optional)
+      COSMOS_ENDPOINT: ${COSMOS_ENDPOINT:-}
+      COSMOS_KEY: ${COSMOS_KEY:-}
+      COSMOS_DATABASE_NAME: ${COSMOS_DATABASE_NAME:-}
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/package*.json:/app/
+    depends_on:
+      - database
+    networks:
+      - parkrun-dev-network
+    restart: unless-stopped
+    command: npm run start:dev
+
+  # Frontend Web Application for development
+  frontend:
+    build: 
+      context: ./frontend
+      target: builder
+    container_name: parkrun-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      REACT_APP_AZURE_AUTHORITY: ${AZURE_AUTHORITY}
+      REACT_APP_API_SCOPE: ${API_SCOPE}
+      REACT_APP_API_BASE_URL: http://localhost:8080/api
+      REACT_APP_REDIRECT_URI: http://localhost:3000
+      REACT_APP_POST_LOGOUT_REDIRECT_URI: http://localhost:3000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/package*.json:/app/
+    depends_on:
+      - backend
+    networks:
+      - parkrun-dev-network
+    restart: unless-stopped
+    command: npm start
+
+networks:
+  parkrun-dev-network:
+    driver: bridge
+
+volumes:
+  mongodb_dev_data:
