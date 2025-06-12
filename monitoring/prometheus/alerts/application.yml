@@ -1,0 +1,183 @@
+# Application-specific alerts for Parkrun Helper
+groups:
+  - name: parkrun_helper_application
+    rules:
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: parkrun:http_error_rate > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }} (> 5%)"
+
+      # Critical Error Rate
+      - alert: CriticalErrorRate
+        expr: parkrun:http_error_rate > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          service: "{{ $labels.service }}"
+        annotations:
+          summary: "Critical error rate detected"
+          description: "Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }} (> 10%)"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: parkrun:http_request_duration_avg > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+        annotations:
+          summary: "High response time detected"
+          description: "Average response time for {{ $labels.service }} is {{ $value }}s (> 2s)"
+
+      # Service Down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute"
+
+      # High Request Volume
+      - alert: HighRequestVolume
+        expr: parkrun:http_requests_per_second > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+        annotations:
+          summary: "High request volume detected"
+          description: "{{ $labels.service }} is receiving {{ $value }} requests/second (> 100)"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionFailure
+        expr: increase(database_operations_total{status="failure"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection failures detected"
+          description: "{{ $value }} database operations have failed in the last 5 minutes"
+
+      # Authentication Failures
+      - alert: HighAuthenticationFailures
+        expr: increase(authentication_attempts_total{status="failure"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: authentication
+        annotations:
+          summary: "High authentication failure rate"
+          description: "{{ $value }} authentication attempts have failed in the last 5 minutes"
+
+      # Memory Usage
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          container: "{{ $labels.name }}"
+        annotations:
+          summary: "High memory usage"
+          description: "Container {{ $labels.name }} is using {{ $value | humanizePercentage }} of available memory"
+
+      # CPU Usage
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          container: "{{ $labels.name }}"
+        annotations:
+          summary: "High CPU usage"
+          description: "Container {{ $labels.name }} is using {{ $value | humanizePercentage }} CPU"
+
+      # Disk Space
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          device: "{{ $labels.device }}"
+        annotations:
+          summary: "Low disk space"
+          description: "Disk {{ $labels.device }} has only {{ $value | humanizePercentage }} space remaining"
+
+  - name: parkrun_helper_business
+    rules:
+      # No Helper Registrations
+      - alert: NoHelperRegistrations
+        expr: increase(business_operations_total{operation="helper_create", status="success"}[1h]) == 0
+        for: 2h
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "No helper registrations in the last hour"
+          description: "No new helpers have been registered in the last 2 hours"
+
+      # Failed Helper Operations
+      - alert: FailedHelperOperations
+        expr: increase(business_operations_total{operation=~"helper_.*", status="failure"}[15m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Multiple helper operation failures"
+          description: "{{ $value }} helper operations have failed in the last 15 minutes"
+
+      # Unusual User Activity
+      - alert: UnusualUserActivity
+        expr: rate(http_requests_total[5m]) > avg_over_time(rate(http_requests_total[5m])[1d:1h]) * 3
+        for: 10m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Unusual user activity detected"
+          description: "Request rate is {{ $value }} times higher than the daily average"
+
+  - name: parkrun_helper_external
+    rules:
+      # Website Down
+      - alert: WebsiteDown
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          endpoint: "{{ $labels.instance }}"
+        annotations:
+          summary: "Website endpoint is down"
+          description: "{{ $labels.instance }} has been unreachable for more than 2 minutes"
+
+      # SSL Certificate Expiry
+      - alert: SSLCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7
+        for: 1h
+        labels:
+          severity: warning
+          endpoint: "{{ $labels.instance }}"
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} will expire in {{ $value | humanizeDuration }}"
+
+      # SSL Certificate Expired
+      - alert: SSLCertificateExpired
+        expr: probe_ssl_earliest_cert_expiry - time() <= 0
+        for: 1m
+        labels:
+          severity: critical
+          endpoint: "{{ $labels.instance }}"
+        annotations:
+          summary: "SSL certificate has expired"
+          description: "SSL certificate for {{ $labels.instance }} has expired"

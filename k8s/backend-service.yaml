@@ -1,0 +1,28 @@
+# Service for Parkrun Helper Organizer Backend API
+apiVersion: v1
+kind: Service
+metadata:
+  name: parkrun-helper-backend-service
+  namespace: parkrun-helper
+  labels:
+    app: parkrun-helper-organizer
+    component: backend
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: parkrun-helper-organizer
+    component: backend
+  sessionAffinity: None

@@ -16,7 +16,7 @@ export class HelpersRepository {
     this.container = this.cosmosClient.database(this.databaseName).container('helpers');
   }
 
-  async create(helper: Omit<Helper, 'id' | 'createdAt' | 'updatedAt'>, userId: string): Promise<Helper> {
+  async create(helper: Omit<Helper, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>, userId: string): Promise<Helper> {
     const newHelper = new Helper({
       ...helper,
       id: uuidv4(),
@@ -60,7 +60,7 @@ export class HelpersRepository {
       ...updateData,
       id, // Ensure ID doesn't change
       updatedAt: new Date(),
-      lastModifiedBy: userId,
+      createdBy: existingHelper.createdBy, // Preserve original creator
     });
 
     const { resource } = await this.container.item(id, id).replace(updatedHelper);

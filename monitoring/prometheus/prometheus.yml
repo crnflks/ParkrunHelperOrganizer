@@ -1,0 +1,149 @@
+# Prometheus configuration for Parkrun Helper monitoring
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/alerts/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # Node Exporter - System metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # cAdvisor - Container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+
+  # Parkrun Helper Backend API
+  - job_name: 'parkrun-backend'
+    static_configs:
+      - targets: ['parkrun-helper_backend:8080']
+    metrics_path: '/api/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Parkrun Helper Frontend (if serving metrics)
+  - job_name: 'parkrun-frontend'
+    static_configs:
+      - targets: ['parkrun-helper_frontend:80']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Database metrics (Cosmos DB via custom exporter)
+  - job_name: 'cosmos-db'
+    static_configs:
+      - targets: ['cosmos-exporter:9999']
+    scrape_interval: 60s
+    scrape_timeout: 30s
+
+  # Blackbox Exporter - External endpoint monitoring
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://parkrun-helper.com
+        - https://api.parkrun-helper.com/api/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # SSL Certificate monitoring
+  - job_name: 'blackbox-ssl'
+    metrics_path: /probe
+    params:
+      module: [ssl_expiry]
+    static_configs:
+      - targets:
+        - parkrun-helper.com:443
+        - api.parkrun-helper.com:443
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Docker Swarm discovery (if using Docker Swarm)
+  - job_name: 'docker-swarm-nodes'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: nodes
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_node_address]
+        target_label: __address__
+        replacement: ${1}:9100
+
+  - job_name: 'docker-swarm-services'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: services
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_service_name]
+        target_label: job
+      - source_labels: [__meta_dockerswarm_service_label_prometheus_job]
+        target_label: job
+        regex: (.+)
+
+# Recording rules for performance optimization
+recording_rules:
+  - name: parkrun_helper_rules
+    interval: 30s
+    rules:
+      # Request rate per service
+      - record: parkrun:http_requests_per_second
+        expr: rate(http_requests_total[5m])
+        labels:
+          service: "{{ $labels.job }}"
+
+      # Error rate per service
+      - record: parkrun:http_error_rate
+        expr: rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m])
+        labels:
+          service: "{{ $labels.job }}"
+
+      # Average response time per service
+      - record: parkrun:http_request_duration_avg
+        expr: rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])
+        labels:
+          service: "{{ $labels.job }}"
+
+      # Database operation rate
+      - record: parkrun:database_operations_per_second
+        expr: rate(database_operations_total[5m])
+
+      # Active user sessions
+      - record: parkrun:active_sessions
+        expr: sum(authentication_attempts_total{status="success"}) - sum(authentication_attempts_total{type="logout"})
+
+# Remote write configuration for long-term storage (optional)
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint"
+#     basic_auth:
+#       username: "username"
+#       password: "password"

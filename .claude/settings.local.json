@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(mkdir:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run test:cov:*)",
+      "Bash(npm test)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(rm:*)",
+      "Bash(find . -type f)",
+      "Bash(find:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

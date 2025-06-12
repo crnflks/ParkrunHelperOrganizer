@@ -1,0 +1,40 @@
+# ConfigMap for Parkrun Helper Organizer application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: parkrun-helper-config
+  namespace: parkrun-helper
+  labels:
+    app: parkrun-helper-organizer
+    component: config
+data:
+  # Environment configuration
+  NODE_ENV: "production"
+  PORT: "3000"
+  
+  # CORS configuration
+  CORS_ORIGIN: "https://parkrun-helper.example.com"
+  
+  # Rate limiting configuration
+  RATE_LIMIT_WINDOW_MS: "900000"  # 15 minutes
+  RATE_LIMIT_MAX_REQUESTS: "1000"
+  
+  # Backup configuration
+  ENABLE_AUTOMATED_BACKUPS: "true"
+  BACKUP_RETENTION_DAYS: "30"
+  BACKUP_DIRECTORY: "/app/backups"
+  
+  # Logging configuration
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  
+  # Health check configuration
+  HEALTH_CHECK_TIMEOUT: "30000"
+  
+  # Prometheus metrics
+  PROMETHEUS_METRICS_PORT: "9090"
+  PROMETHEUS_METRICS_PATH: "/metrics"
+  
+  # Application metadata
+  APP_NAME: "Parkrun Helper Organizer"
+  APP_VERSION: "1.0.0"

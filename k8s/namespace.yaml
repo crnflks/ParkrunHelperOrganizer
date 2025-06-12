@@ -1,0 +1,9 @@
+# Kubernetes namespace for Parkrun Helper Organizer
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: parkrun-helper
+  labels:
+    name: parkrun-helper
+    environment: production
+    app: parkrun-helper-organizer

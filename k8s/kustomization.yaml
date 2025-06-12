@@ -1,0 +1,80 @@
+# Kustomization file for Parkrun Helper Organizer Kubernetes manifests
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: parkrun-helper-organizer
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Namespace
+namespace: parkrun-helper
+
+# Resources to include
+resources:
+- namespace.yaml
+- configmap.yaml
+- secret.yaml
+- rbac.yaml
+- pvc.yaml
+- backend-deployment.yaml
+- backend-service.yaml
+- frontend-deployment.yaml
+- frontend-service.yaml
+- ingress.yaml
+- hpa.yaml
+- networkpolicy.yaml
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: parkrun-helper-organizer
+  app.kubernetes.io/version: v1.0.0
+  app.kubernetes.io/component: application
+  app.kubernetes.io/part-of: parkrun-helper
+  app.kubernetes.io/managed-by: kustomize
+
+# Common annotations
+commonAnnotations:
+  config.kubernetes.io/origin: |
+    path: k8s/kustomization.yaml
+  config.kubernetes.io/index: "0"
+
+# Images (can be overridden for different environments)
+images:
+- name: parkrun-helper/backend
+  newTag: latest
+- name: parkrun-helper/frontend
+  newTag: latest
+
+# ConfigMap generator for additional configuration
+configMapGenerator:
+- name: parkrun-helper-deployment-config
+  literals:
+  - deployment.timestamp=$(date +%Y%m%d_%H%M%S)
+  - deployment.version=v1.0.0
+  - deployment.environment=production
+
+# Secret generator placeholder (use external secret management in production)
+# secretGenerator:
+# - name: generated-secrets
+#   literals:
+#   - key=value
+
+# Patches for environment-specific customizations
+# patchesStrategicMerge:
+# - patches/production.yaml
+
+# JSON patches
+# patchesJson6902:
+# - target:
+#     version: v1
+#     kind: Deployment
+#     name: parkrun-helper-backend
+#   path: patches/backend-replicas.yaml
+
+# Replicas (can be overridden per environment)
+replicas:
+- name: parkrun-helper-backend
+  count: 3
+- name: parkrun-helper-frontend
+  count: 2

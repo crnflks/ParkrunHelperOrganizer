@@ -1,0 +1,20 @@
+# Service for Parkrun Helper Organizer Frontend
+apiVersion: v1
+kind: Service
+metadata:
+  name: parkrun-helper-frontend-service
+  namespace: parkrun-helper
+  labels:
+    app: parkrun-helper-organizer
+    component: frontend
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: parkrun-helper-organizer
+    component: frontend
+  sessionAffinity: None

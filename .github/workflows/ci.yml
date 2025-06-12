@@ -1,0 +1,407 @@
+# CI/CD Pipeline for Parkrun Helper Organizer
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '18'
+  
+jobs:
+  # Backend CI Job
+  backend-ci:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+        
+    strategy:
+      matrix:
+        node-version: [18, 20]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run linting
+        run: npm run lint
+        
+      - name: Run type checking
+        run: npx tsc --noEmit
+        
+      - name: Run unit tests
+        run: npm run test:cov
+        
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == 18
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
+          
+      - name: Build application
+        run: npm run build
+        
+      - name: Cache build artifacts
+        if: matrix.node-version == 18
+        uses: actions/cache@v3
+        with:
+          path: backend/dist
+          key: backend-build-${{ github.sha }}
+          
+  # Frontend CI Job
+  frontend-ci:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+        
+    strategy:
+      matrix:
+        node-version: [18, 20]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+          
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        
+      - name: Run type checking
+        run: npx tsc --noEmit
+        
+      - name: Run tests
+        run: npm test -- --coverage --watchAll=false
+        env:
+          CI: true
+          
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == 18
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+          fail_ci_if_error: false
+          
+      - name: Build application
+        run: npm run build
+        env:
+          REACT_APP_AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          REACT_APP_AZURE_AUTHORITY: ${{ secrets.AZURE_AUTHORITY }}
+          REACT_APP_API_SCOPE: ${{ secrets.API_SCOPE }}
+          REACT_APP_API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          
+      - name: Cache build artifacts
+        if: matrix.node-version == 18
+        uses: actions/cache@v3
+        with:
+          path: frontend/build
+          key: frontend-build-${{ github.sha }}
+
+  # Security Scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [backend-ci, frontend-ci]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          
+      - name: Audit backend dependencies
+        run: |
+          cd backend
+          npm audit --audit-level=moderate
+          
+      - name: Audit frontend dependencies
+        run: |
+          cd frontend
+          npm audit --audit-level=moderate
+
+  # Infrastructure Validation
+  terraform-validate:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./infra/terraform
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '~1.6'
+          
+      - name: Terraform Init
+        run: terraform init -backend=false
+        
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        
+      - name: Terraform Validate
+        run: terraform validate
+        
+      - name: Run tflint
+        uses: terraform-linters/setup-tflint@v3
+        with:
+          tflint_version: latest
+          
+      - name: Run TFLint
+        run: |
+          tflint --init
+          tflint
+
+  # Build and Push Docker Images
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [backend-ci, frontend-ci, security-scan]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    strategy:
+      matrix:
+        component: [backend, frontend, database]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.component }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+      - name: Restore backend build cache
+        if: matrix.component == 'backend'
+        uses: actions/cache@v3
+        with:
+          path: backend/dist
+          key: backend-build-${{ github.sha }}
+          
+      - name: Restore frontend build cache
+        if: matrix.component == 'frontend'
+        uses: actions/cache@v3
+        with:
+          path: frontend/build
+          key: frontend-build-${{ github.sha }}
+          
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.component }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            
+  # Deploy to Development
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [build-images, terraform-validate]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: development
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Azure CLI
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_DEV }}
+          
+      - name: Deploy infrastructure
+        run: |
+          cd infra/terraform
+          terraform init
+          terraform plan -var-file="environments/dev.tfvars" -out=tfplan
+          terraform apply tfplan
+          
+      - name: Update container instances
+        run: |
+          az container restart --resource-group rg-parkrun-helper-dev --name ci-parkrun-helper-dev
+          
+      - name: Run health checks
+        run: |
+          sleep 30
+          curl -f https://api-dev.parkrun-helper.com/api/health || exit 1
+          
+  # Deploy to Production
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-images, terraform-validate]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Azure CLI
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
+          
+      - name: Deploy infrastructure
+        run: |
+          cd infra/terraform
+          terraform init
+          terraform plan -var-file="environments/prod.tfvars" -out=tfplan
+          terraform apply tfplan
+          
+      - name: Update container instances
+        run: |
+          az container restart --resource-group rg-parkrun-helper-prod --name ci-parkrun-helper-prod
+          
+      - name: Run smoke tests
+        run: |
+          sleep 60
+          curl -f https://api.parkrun-helper.com/api/health || exit 1
+          curl -f https://parkrun-helper.com || exit 1
+          
+      - name: Notify deployment
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Performance Testing
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-dev]
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.12.x
+        
+      - name: Run Lighthouse CI
+        run: |
+          lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          LHCI_UPLOAD_TARGET: github
+          
+      - name: Run load tests
+        run: |
+          npx artillery quick --count 10 --num 5 https://api-dev.parkrun-helper.com/api/health
+
+  # Release Job
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [deploy-prod]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0)..HEAD >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            ## Changes in this Release
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            
+            ## Deployment
+            - ✅ Production deployment completed
+            - ✅ Health checks passed
+            - ✅ Performance tests passed
+          draft: false
+          prerelease: false

@@ -3,10 +3,34 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter, AllExceptionsFilter } from './common/exceptions';
+import { winstonConfig } from './common/logging';
+import { globalValidationConfig } from './common/validation';
+import { SanitizationPipe } from './common/sanitization';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: winstonConfig.instance,
+  });
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  }));
 
   // Enable CORS for frontend
   app.enableCors({
@@ -18,12 +42,14 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Global validation pipe
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-    forbidNonWhitelisted: true,
-  }));
+  // Global exception filters
+  app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
+
+  // Global validation and sanitization pipes
+  app.useGlobalPipes(
+    new SanitizationPipe(),
+    new ValidationPipe(globalValidationConfig)
+  );
 
   // API prefix
   app.setGlobalPrefix('api');

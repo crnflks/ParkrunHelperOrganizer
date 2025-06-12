@@ -1,0 +1,208 @@
+# Deployment for Parkrun Helper Organizer Backend API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parkrun-helper-backend
+  namespace: parkrun-helper
+  labels:
+    app: parkrun-helper-organizer
+    component: backend
+    version: v1.0.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: parkrun-helper-organizer
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: parkrun-helper-organizer
+        component: backend
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: backend
+        image: parkrun-helper/backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        # Configuration from ConfigMap
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: parkrun-helper-config
+              key: NODE_ENV
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: parkrun-helper-config
+              key: PORT
+        - name: CORS_ORIGIN
+          valueFrom:
+            configMapKeyRef:
+              name: parkrun-helper-config
+              key: CORS_ORIGIN
+        - name: ENABLE_AUTOMATED_BACKUPS
+          valueFrom:
+            configMapKeyRef:
+              name: parkrun-helper-config
+              key: ENABLE_AUTOMATED_BACKUPS
+        - name: BACKUP_RETENTION_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: parkrun-helper-config
+              key: BACKUP_RETENTION_DAYS
+        - name: BACKUP_DIRECTORY
+          valueFrom:
+            configMapKeyRef:
+              name: parkrun-helper-config
+              key: BACKUP_DIRECTORY
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: parkrun-helper-config
+              key: LOG_LEVEL
+        - name: PROMETHEUS_METRICS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: parkrun-helper-config
+              key: PROMETHEUS_METRICS_PORT
+        # Secrets
+        - name: AZURE_AD_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: parkrun-helper-secrets
+              key: AZURE_AD_CLIENT_ID
+        - name: AZURE_AD_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: parkrun-helper-secrets
+              key: AZURE_AD_CLIENT_SECRET
+        - name: AZURE_AD_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: parkrun-helper-secrets
+              key: AZURE_AD_TENANT_ID
+        - name: COSMOS_DB_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: parkrun-helper-secrets
+              key: COSMOS_DB_ENDPOINT
+        - name: COSMOS_DB_KEY
+          valueFrom:
+            secretKeyRef:
+              name: parkrun-helper-secrets
+              key: COSMOS_DB_KEY
+        - name: COSMOS_DB_DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: parkrun-helper-secrets
+              key: COSMOS_DB_DATABASE_NAME
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: parkrun-helper-secrets
+              key: JWT_SECRET
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: http
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+          successThreshold: 1
+        # Volume mounts
+        volumeMounts:
+        - name: backup-storage
+          mountPath: /app/backups
+        - name: logs
+          mountPath: /app/logs
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      # Volumes
+      volumes:
+      - name: backup-storage
+        persistentVolumeClaim:
+          claimName: parkrun-helper-backup-pvc
+      - name: logs
+        emptyDir: {}
+      # Restart policy
+      restartPolicy: Always
+      # Service account
+      serviceAccountName: parkrun-helper-backend
+      # Security context for pod
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      # Node selector for production workloads
+      nodeSelector:
+        kubernetes.io/os: linux
+      # Tolerations and affinity
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: parkrun-helper-organizer
+                  component: backend
+              topologyKey: kubernetes.io/hostname

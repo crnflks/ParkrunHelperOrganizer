@@ -1,0 +1,33 @@
+# Persistent Volume Claim for backup storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: parkrun-helper-backup-pvc
+  namespace: parkrun-helper
+  labels:
+    app: parkrun-helper-organizer
+    component: backup-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard # Adjust based on your cluster's storage classes
+---
+# Optional: PVC for monitoring data if using persistent monitoring
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: parkrun-helper-monitoring-pvc
+  namespace: parkrun-helper
+  labels:
+    app: parkrun-helper-organizer
+    component: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
