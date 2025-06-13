@@ -29,55 +29,71 @@ For detailed architecture information, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## 🚀 Quick Start
 
-### 1. Infrastructure Setup
+The fastest way to get the Parkrun Helper Organizer running locally:
 
-First, provision the Azure infrastructure:
-
-```bash
-cd infra/terraform
-
-# Initialize Terraform
-terraform init
-
-# Review the planned changes
-terraform plan
-
-# Apply the infrastructure
-terraform apply
-
-# Export configuration for Docker secrets
-terraform output -json > ../../terraform-outputs.json
-```
-
-### 2. Docker Swarm Initialization
+### One-Command Start
 
 ```bash
-# Initialize Docker Swarm (if not already done)
-docker swarm init
+# Clone the repository
+git clone <repository-url>
+cd ParkrunHelperOrganizer
 
-# Verify swarm status
-docker node ls
+# Run the quick start script
+./start.sh
 ```
 
-### 3. Build and Deploy
+This script will:
+1. ✅ Check prerequisites (Node.js, Docker, etc.)
+2. ⚙️ Set up environment configuration
+3. 📦 Install dependencies
+4. 🔨 Build applications  
+5. 🚀 Start services with Docker
+6. 📊 Optionally start monitoring
+
+### Manual Setup (Alternative)
+
+If you prefer manual setup:
 
 ```bash
-# Build all container images
-./scripts/build-images.sh
+# 1. Install dependencies
+cd backend && npm install --legacy-peer-deps
+cd ../frontend && npm install --legacy-peer-deps
 
-# Create Docker secrets from Terraform outputs
-./scripts/create-secrets.sh
+# 2. Create environment file
+cp .env.example .env
+# Edit .env with your Azure AD and Cosmos DB credentials
 
-# Deploy the application stack
-./scripts/deploy-stack.sh
+# 3. Build applications
+cd backend && npm run build
+cd ../frontend && npm run build
+
+# 4. Start with Docker Compose
+docker-compose -f docker-compose.dev.yml up -d
 ```
 
-### 4. Access the Application
+### Access the Application
 
 - **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8080/api
-- **API Documentation**: http://localhost:8080/api/docs
-- **Traefik Dashboard**: http://localhost:8080
+- **Backend API**: http://localhost:3001
+- **API Documentation**: http://localhost:3001/api
+- **Health Checks**: http://localhost:3001/health
+- **Metrics**: http://localhost:3001/metrics
+
+### Production Deployment
+
+For production deployment with Azure infrastructure:
+
+```bash
+# 1. Deploy Azure infrastructure
+cd infra/terraform
+terraform init && terraform apply
+
+# 2. Deploy to Kubernetes
+kubectl apply -k k8s/
+
+# 3. Or deploy with Docker Swarm
+./scripts/deploy-stack.sh
+```
 
 ## 📋 Detailed Deployment Guide
 
