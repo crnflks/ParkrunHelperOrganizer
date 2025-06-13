@@ -81,21 +81,83 @@ docker-compose -f docker-compose.dev.yml up -d
 
 ### Production Deployment
 
-For production deployment with Azure infrastructure:
+Choose your preferred deployment method:
 
+#### Option 1: Docker Swarm (Recommended for Local/Small Scale)
 ```bash
-# 1. Deploy Azure infrastructure
+# Deploy entire stack to Docker Swarm with load balancing
+./deploy-swarm.sh
+```
+
+#### Option 2: Kubernetes (Recommended for Production)
+```bash
+# Deploy to Kubernetes with scaling and monitoring
+kubectl apply -k k8s/
+```
+
+#### Option 3: Azure Infrastructure with Terraform
+```bash
+# Deploy Azure infrastructure first
 cd infra/terraform
 terraform init && terraform apply
 
-# 2. Deploy to Kubernetes
-kubectl apply -k k8s/
-
-# 3. Or deploy with Docker Swarm
+# Then deploy application
 ./scripts/deploy-stack.sh
 ```
 
 ## 📋 Detailed Deployment Guide
+
+### Docker Swarm Deployment (Local/Production)
+
+The `deploy-swarm.sh` script provides a complete Docker Swarm deployment with:
+
+#### Features
+- **Traefik Load Balancer** with automatic service discovery
+- **High Availability** with service replication and health checks
+- **Monitoring Stack** (Prometheus, Grafana, AlertManager)
+- **Automatic Scaling** and rolling updates
+- **Secret Management** for sensitive data
+- **Persistent Storage** for databases and metrics
+
+#### Quick Deploy
+```bash
+# One-command deployment
+./deploy-swarm.sh
+
+# Available options
+./deploy-swarm.sh --help    # Show help
+./deploy-swarm.sh --build   # Only build images
+./deploy-swarm.sh --deploy  # Only deploy (assumes images exist)
+./deploy-swarm.sh --status  # Show stack status
+./deploy-swarm.sh --remove  # Remove entire stack
+./deploy-swarm.sh --scale   # Scale services
+```
+
+#### Access URLs
+After deployment, access your services at:
+- **Frontend**: http://localhost
+- **Backend API**: http://localhost/api
+- **Traefik Dashboard**: http://localhost:8080
+- **Prometheus**: http://localhost:9090
+- **Grafana**: http://localhost:3001 (admin/admin)
+
+#### Management Commands
+```bash
+# View stack status
+docker stack services parkrun-helper
+
+# View service logs  
+docker service logs -f parkrun-helper_backend
+
+# Scale a service
+docker service scale parkrun-helper_backend=3
+
+# Update a service
+docker service update parkrun-helper_backend
+
+# Remove entire stack
+docker stack rm parkrun-helper
+```
 
 ### Step 1: Azure Infrastructure
 
